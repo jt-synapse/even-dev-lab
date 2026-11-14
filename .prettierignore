@@ -1,0 +1,5 @@
+# The blueprint is preserved unchanged; never reformat it.
+docs/WORKSPACE_BLUEPRINT.md
+yarn.lock
+.yarn/
+artifacts/

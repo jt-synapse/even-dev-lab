@@ -1,0 +1,27 @@
+# Dependencies and build output
+node_modules/
+dist/
+.yarn/cache/
+.yarn/unplugged/
+.yarn/build-state.yml
+.yarn/install-state.gz
+.pnp.*
+
+# Generated artifacts, logs, test evidence
+artifacts/
+*.ehpk
+*.log
+test-results/
+coverage/
+
+# Local environment and secrets (sample names only are committed)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Editor and OS noise
+.DS_Store
+.idea/
+.vscode/

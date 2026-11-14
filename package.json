@@ -1,0 +1,31 @@
+{
+  "name": "even-dev-lab",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "yarn@4.18.1",
+  "engines": {
+    "node": "24.22.1"
+  },
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "experiments/*"
+  ],
+  "scripts": {
+    "doctor": "node scripts/doctor.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "node --test scripts/doctor.test.mjs",
+    "check": "node scripts/doctor.mjs && prettier --check . && eslint . && tsc -p tsconfig.json --noEmit && node --test scripts/doctor.test.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "24.19.2",
+    "eslint": "10.14.0",
+    "prettier": "3.10.1",
+    "typescript": "7.0.2"
+  }
+}
