@@ -1,6 +1,6 @@
 # even-dev-lab
 
-A fresh, reusable development workspace for building tools for Even Realities G2 glasses and the R1 ring. No product has been selected. This repository has completed **M0–M3**: pinned toolchain, environment doctor, adapted Even Hub agent skills, the minimal `apps/device-lab` diagnostic app, and the repeatable automated simulator suite (`corepack yarn test:sim`) verified against `evenhub-simulator@0.9.5`. Physical G2/R1 device validation (`M4`, `0/9` cases run) is ready for manual execution via [docs/testing/M4_HARDWARE_RUNBOOK.md](docs/testing/M4_HARDWARE_RUNBOOK.md).
+A fresh, reusable development workspace for building tools for Even Realities G2 glasses and the R1 ring. No product has been selected. This repository has completed **M0–M4**: pinned toolchain, environment doctor, adapted Even Hub agent skills, the minimal `apps/device-lab` diagnostic app, the repeatable automated simulator suite (`corepack yarn test:sim`) verified against `evenhub-simulator@0.9.5`, and all `9 / 9` M4 physical hardware baseline cases executed on `iPhone 17 Pro Max` (`iOS 27.2`), `Even App v2.4.0`, `G2 2.4.0.24`, and `R1 2.3.2.0008` via [docs/testing/M4_HARDWARE_RUNBOOK.md](docs/testing/M4_HARDWARE_RUNBOOK.md). Next milestone: **M5 (Packaging + CI)**.
 
 The governing specification is [docs/WORKSPACE_BLUEPRINT.md](docs/WORKSPACE_BLUEPRINT.md). Current status lives in [docs/planning/STATUS.md](docs/planning/STATUS.md).
 
@@ -51,7 +51,7 @@ Yarn is not expected on PATH. `corepack yarn <cmd>` is the working invocation ev
 | `docs/WORKSPACE_BLUEPRINT.md` | The governing specification (preserved byte-identical)                                              |
 | `docs/platform/`              | Capability register, compatibility record, sources                                                  |
 | `docs/decisions/`             | Architecture decision records (`ADR-001`…`ADR-003`)                                                 |
-| `docs/testing/`               | Test layers, M4 hardware baseline runbook, pending matrix, evidence template                        |
+| `docs/testing/`               | Test layers, M4 hardware baseline runbook, completed `9/9` matrix, evidence records                 |
 | `docs/planning/`              | Status, milestones, open questions                                                                  |
 | `packages/`, `experiments/`   | Workspace globs declared; created on demand (shared code requires 2 consumers)                      |
 

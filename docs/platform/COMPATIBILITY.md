@@ -24,6 +24,13 @@ All versions below were verified against npm registry metadata and installed/exe
 - **Official templates:** `even-realities/evenhub-templates` @ `8cb01354f5ee914c5fab97d06e6d13b28eeb5815` — `minimal/` typechecked (`tsc --noEmit`) and built (`vite build`) cleanly against our pinned `typescript@6.0.3`, `even_hub_sdk@0.0.16`, and `vite@8.3.8`.
 - **Official agent skills:** `even-realities/everything-evenhub` @ `cb8321fbe2a11d5aaf08fa12088cbe9b9fc5bac2` (MIT License) — evaluated in M2 and adapted into four portable workspace skills under `.agents/skills/` (`evenhub-sdk-and-ui`, `evenhub-input-and-lifecycle`, `evenhub-simulator`, `evenhub-cli-local`) rewritten for `corepack yarn`, exact SDK `0.0.16` types, and strict local-only CLI rules.
 
-## Remaining hardware unknowns (deferred to M4)
+## Verified M4 hardware baseline (2026-11-15)
 
-- Target phone OS/model, installed Even companion app version (`>= 2.2.10` required by SDK `0.0.16`), and physical G2/R1 firmware versions remain unrecorded until M4 hardware testing.
+| Component          | Version / Model                  | Verification status (2026-11-15)                                                                                 |
+| ------------------ | -------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Phone / OS         | `iPhone 17 Pro Max` / `iOS 27.2` | Exercised across all `9 / 9` M4 cases against static `apps/device-lab` (`976de10`)                               |
+| Even companion app | `v2.4.0`                         | Satisfies SDK `0.0.16` `minAppVersion` (`2.2.10`); `onLaunchSource("appMenu")`, `onDeviceStatusChanged` verified |
+| Even G2 firmware   | `2.4.0.24`                       | Crisp `576×288` border/text, `eventSource` `1`/`3` on `sysEvent`, `textEvent` scrolls (`1`/`2`) verified         |
+| Even R1 firmware   | `2.3.2.0008`                     | `eventSource: 2` (`ring`) on tap, double-tap, long-press/release; `textEvent` omits `eventSource`                |
+
+Untested Android devices, other iOS releases, and future Even App / G2 / R1 firmware updates remain outside this baseline.

@@ -1,10 +1,10 @@
 # Status
 
-Updated: 2026-11-14
+Updated: 2026-11-15
 
 ## Current milestone
 
-**M3 Simulator automation — complete.** `apps/device-lab` now has a repeatable automated simulator suite (`corepack yarn test:sim`) that starts Vite + `evenhub-simulator@0.9.5`, gates on console readiness and error checks, drives deterministic input transitions, verifies `576×288` RGBA alpha-channel and localized framebuffer diffs, cleans up spawned process groups, and records artifacts under `artifacts/sim/latest/`. Physical G2/R1 device checks remain **not run** (deferred to M4).
+**M4 Hardware baseline — complete.** All `9 / 9` cases in the hardware matrix (`docs/testing/TESTING.md` `HW-001`–`HW-009`) have been executed by JT against the static `vite preview` production build of `apps/device-lab` (`976de10`, port `4173`) on **`iPhone 17 Pro Max` / `iOS 27.2`**, **`Even App v2.4.0`**, **`Even G2 2.4.0.24`**, and **`Even R1 2.3.2.0008`**. Sanitized WebView captures are archived locally under gitignored `artifacts/hw/2026-11-15/`, directly verified platform behaviors (`CAP-001`, `CAP-002`, `CAP-003`, `CAP-005`, `CAP-006`, `CAP-008`) are promoted to `verified-device` in `docs/platform/CAPABILITIES.md`, and `scripts/doctor.mjs` now reports `[ok] hardware` from `docs/testing/TESTING.md` rather than unconditionally hardcoding `deferred`. Next milestone: **M5 (Packaging and CI)**.
 
 ## Completed in M2 (building on M1 commit `787b2ca`)
 
@@ -54,6 +54,26 @@ Updated: 2026-11-14
 - `corepack yarn test:sim` passed (exit `0`, ~1.5s) against `evenhub-simulator@0.9.5`: verified console readiness, `getDeviceInfo()` compatibility (`g2 · connected · 100% · worn` in WebView), zero runtime or trailing bridge errors, `576×288` RGBA alpha framebuffer (`litPixels=4913`, `transparentPixels=160975`), state + localized diff transitions across `click` → `down` → `up` → `long_press` → `long_press_release` → `click`, clean process-group exit, and artifacts written under gitignored `artifacts/sim/latest/`.
 - Physical G2/R1 hardware matrix: **not run** (`0/9` cases executed; blocked on physical phone + G2 + R1 execution by JT).
 
+## Completed in M4 (2026-11-15, building on M3 commit `976de10`)
+
+- **Physical hardware matrix (`9 / 9` pass — `docs/testing/TESTING.md` `HW-001`–`HW-009`):**
+  - **Cases 1–5 & lifecycle wire captures (screenshots archived under gitignored `artifacts/hw/2026-11-15/`):** Verified `BRIDGE READY`, `onLaunchSource("appMenu")`, initial `g2 · connected · 100% · worn` telemetry, live `onDeviceStatusChanged` update (`100%` -> `99%`), crisp `576×288` G2 border and typography with no edge clipping, `Row 3 of 3` clamping, all three `sysEvent.eventSource` origins (`1` right temple, `2` R1 ring, `3` left temple) across taps/double-tap/long-press/release, protobuf `CLICK_EVENT = 0` omission (`{"sysEvent":{"eventSource":2}}`), `textEvent` omitting `eventSource` even from R1 (`{"textEvent":{"containerID":1,"containerName":"diag-main","eventType":2}}`), native `"Close this feature?"` modal + listener survival on cancel, and `sysEvent` `FOREGROUND_ENTER_EVENT` (`4`) / `FOREGROUND_EXIT_EVENT` (`5`).
+  - **Cases 6–9 (operator-verified live checks):** Confirmed BLE disconnect (~10s) and reconnect recovery, 15s phone app-backgrounding with G2 inputs, 15–20s iOS screen lock/unlock recovery without `BRIDGE ERROR`, and ~15s Wi-Fi + Cellular offline loop (Bluetooth ON) against static `vite preview` port `4173`.
+- **Platform & compatibility records (`CAPABILITIES.md`, `COMPATIBILITY.md`, `OPEN_QUESTIONS.md`):**
+  - Promoted `CAP-001`, `CAP-002`, `CAP-003`, `CAP-005`, `CAP-006`, and `CAP-008` to `verified-device` for `iPhone 17 Pro Max` / `iOS 27.2` + `Even App v2.4.0` + `G2 2.4.0.24` + `R1 2.3.2.0008`. Kept `CAP-004` (`verified-simulator`), `CAP-009`..`CAP-011` (`unknown`), `CAP-012`..`CAP-013` (`documented`), and `CAP-014` (`proposed`).
+- **Doctor hardware matrix inspection (`scripts/doctor.mjs`, `scripts/doctor.test.mjs`):**
+  - Added pure `inspectHardwareBaseline(testingMd)` helper so `corepack yarn doctor` inspects `docs/testing/TESTING.md` (without probing live BLE), reporting `ok` (`9/9 pass`), `deferred` (missing or partial matrix), or `warn` (recorded `fail`), covered by 2 new unit tests (`10/10` total in `doctor.test.mjs`).
+
+## Verification performed in M4 (2026-11-15)
+
+- `corepack yarn check` — **passed, exit 0**:
+  - `doctor`: `[ok] hardware: M4 baseline recorded (9/9 pass in docs/testing/TESTING.md; CLI does not live-probe BLE)`, `0` failures, `0` warnings.
+  - `format:check`, `lint`, and `typecheck`: `0` errors across root + `apps/device-lab`.
+  - `test`: `21/21` root tests (`doctor.test.mjs` `10/10` + `sim-harness.test.mjs` `11/11`) + `16/16` `device-lab` tests passed.
+  - `build`: `vite build` produced `apps/device-lab/dist/` (`index.html` 3.16 kB, `assets/index-gh8ugOij.js` 89.99 kB).
+- `corepack yarn test:sim` — **passed, exit 0** against `evenhub-simulator@0.9.5` (all steps green, clean process-group exit).
+- `docs/WORKSPACE_BLUEPRINT.md` SHA-256 unchanged (`2a324a4cd45ce0c956453c02e2600f32a2859f9e66598fa9a3493443cd15b307`).
+
 ## Blueprint §16 readiness checklist
 
 - [x] Scope remains a multi-tool G2/R1 development lab
@@ -63,15 +83,16 @@ Updated: 2026-11-14
 - [x] Formatting, lint, typecheck, unit/adapter tests, and Vite build run in `corepack yarn check`
 - [x] Agent instructions and `.agents/skills/` are concise, portable, and verified against installed types
 - [x] Repeatable simulator automation command (`corepack yarn test:sim`)
-- [x] Real-device validation kept strictly separate and marked **not run** (M4)
+- [x] Real-device validation kept strictly separate and recorded (`9/9` M4 baseline in `docs/testing/TESTING.md`)
 - [x] Unknown/untested capabilities never presented as device-verified
 - [x] Local packaging (`evenhub pack`) separated from external account/upload/publish actions
 - [x] Zero speculative backend, product UI, or shared package premature extraction
 
 ## Remaining unknowns
 
-- Physical G2/R1 hardware behavior: real `eventSource` values (`1` right temple, `2` R1 ring, `3` left temple), `getDeviceInfo()` / `onDeviceStatusChanged()` payloads, optical legibility, BLE latency, companion-app version (`>= 2.2.10`), and phone foreground/background/lock/network-loss behavior remain **not run** until JT runs M4 on real devices.
+- Untested phones/OS versions (especially **Android** host WebView behavior) and future Even App / G2 / R1 firmware updates.
+- Multi-container layouts (`CAP-004` `2..4` containers, lists, images) on physical G2, offline cold-start of a packaged `.ehpk` (`M5`), `CAP-010` (phone-paired Bluetooth keyboard), `CAP-012` (mic streaming), and `CAP-013` (native camera/album bridge) (`M6` experiments).
 
 ## Recommended next action
 
-Execute **M4 (Hardware baseline)** on physical phone + Even G2 + R1 ring using `docs/testing/M4_HARDWARE_RUNBOOK.md` (`DEV_HOST=0.0.0.0 corepack yarn dev:lab` + `corepack yarn qr:lab --url http://<lan-ip>:5173`, plus `preview:lab` port `4173` for `Network loss`), complete all 9 cases in `docs/testing/TESTING.md`, and record observed `CAP-*` evidence in `docs/platform/CAPABILITIES.md`.
+Execute **M5 (Packaging and CI)**: add a repeatable local `pack:lab` script (via `./node_modules/.bin/evenhub pack`, strictly zero login/upload/publish) and add a `.github/workflows/` CI workflow mirroring `corepack yarn check` on pinned Node `24.22.1` + Corepack Yarn `4.18.1`.

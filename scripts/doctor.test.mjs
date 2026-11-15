@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
-import { collectReport, formatReport, redactOutput } from "./doctor.mjs";
+import {
+  collectReport,
+  formatReport,
+  inspectHardwareBaseline,
+  redactOutput,
+} from "./doctor.mjs";
 
 /** @typedef {import("./doctor.mjs").Deps} Deps */
 
@@ -183,4 +188,69 @@ test("secret-shaped values are redacted everywhere", async () => {
     }),
   );
   assert.equal(formatReport(report).includes(secret), false);
+});
+
+test("complete 9/9 M4 matrix in TESTING.md promotes hardware check to ok", async () => {
+  const fullMatrix = [
+    "# Testing and evidence",
+    "",
+    "## Hardware matrix — M4 baseline complete (9 / 9)",
+    "",
+    "| Case | Status |",
+    "| ---- | ------ |",
+    "| Cold start | pass |",
+    "| Repeated navigation | pass |",
+    "| Long-press / release | pass |",
+    "| Ring absent | pass |",
+    "| Ring present | pass |",
+    "| Disconnect / reconnect | pass |",
+    "| Phone foreground / background | pass |",
+    "| Screen lock / unlock | pass |",
+    "| Network loss | pass |",
+    "",
+    "## Evidence record template",
+  ].join("\n");
+
+  const base = fakeDeps();
+  const report = await collectReport(
+    fakeDeps({
+      readText: (rel) =>
+        rel === "docs/testing/TESTING.md" ? fullMatrix : base.readText(rel),
+    }),
+  );
+  const hw = checkNamed(report, "hardware");
+  assert.equal(hw.status, "ok");
+  assert.match(hw.detail, /9\/9 pass/);
+  assert.match(formatReport(report), /M4 hardware baseline recorded/);
+});
+
+test("partial M4 matrix keeps hardware check deferred with zero failures", async () => {
+  const partialMatrix = [
+    "## Hardware matrix — partial",
+    "| Case | Status |",
+    "| ---- | ------ |",
+    "| Cold start | pass |",
+    "| Repeated navigation | pass |",
+    "| Long-press / release | pass |",
+    "| Ring absent | pass |",
+    "| Ring present | pass |",
+    "| Disconnect / reconnect | pending |",
+    "| Phone foreground / background | pending |",
+    "| Screen lock / unlock | pending |",
+    "| Network loss | pending |",
+  ].join("\n");
+
+  const parsed = inspectHardwareBaseline(partialMatrix);
+  assert.equal(parsed.status, "deferred");
+  assert.match(parsed.detail, /5\/9 pass/);
+
+  const base = fakeDeps();
+  const report = await collectReport(
+    fakeDeps({
+      readText: (rel) =>
+        rel === "docs/testing/TESTING.md" ? partialMatrix : base.readText(rel),
+    }),
+  );
+  assert.equal(report.failures, 0);
+  assert.equal(checkNamed(report, "hardware").status, "deferred");
 });

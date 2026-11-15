@@ -290,15 +290,90 @@ export async function collectReport(deps) {
       );
     }
   }
-  add(
-    "hardware",
-    "deferred",
-    "physical G2/R1 device and Even app checks are M4, not run",
-  );
+  const hw = inspectHardwareBaseline(deps.readText("docs/testing/TESTING.md"));
+  add("hardware", hw.status, hw.detail);
 
   const failures = checks.filter((c) => c.status === "fail").length;
   const warnings = checks.filter((c) => c.status === "warn").length;
   return { checks, failures, warnings };
+}
+
+/**
+ * Parse M4 hardware matrix rows in docs/testing/TESTING.md without probing live BLE.
+ * @param {string | null} testingMd
+ * @returns {{ status: Status, detail: string }}
+ */
+export function inspectHardwareBaseline(testingMd) {
+  if (!testingMd) {
+    return {
+      status: "deferred",
+      detail: "physical G2/R1 device and Even app checks are M4, not run",
+    };
+  }
+  const lines = testingMd.split(/\r?\n/);
+  let inMatrix = false;
+  let total = 0;
+  let passed = 0;
+  let failed = 0;
+
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
+    if (!inMatrix) {
+      if (line.startsWith("## Hardware matrix")) {
+        inMatrix = true;
+      }
+      continue;
+    }
+    if (line.startsWith("## ")) {
+      break;
+    }
+    if (!line.startsWith("|")) {
+      continue;
+    }
+    const cells = line
+      .split("|")
+      .slice(1, -1)
+      .map((cell) => cell.trim());
+    const caseCell = cells[0] ?? "";
+    const statusCell = (cells[1] ?? "").toLowerCase();
+    if (
+      cells.length < 2 ||
+      caseCell.length === 0 ||
+      caseCell === "Case" ||
+      /^-+$/.test(caseCell)
+    ) {
+      continue;
+    }
+    total += 1;
+    if (statusCell === "pass") {
+      passed += 1;
+    } else if (statusCell === "fail") {
+      failed += 1;
+    }
+  }
+
+  if (total === 0) {
+    return {
+      status: "deferred",
+      detail: "physical G2/R1 device and Even app checks are M4, not run",
+    };
+  }
+  if (failed > 0) {
+    return {
+      status: "warn",
+      detail: `M4 hardware matrix has failures (${passed}/${total} pass in docs/testing/TESTING.md)`,
+    };
+  }
+  if (total >= 9 && passed === total) {
+    return {
+      status: "ok",
+      detail: `M4 baseline recorded (${passed}/${total} pass in docs/testing/TESTING.md; CLI does not live-probe BLE)`,
+    };
+  }
+  return {
+    status: "deferred",
+    detail: `M4 hardware matrix partially recorded (${passed}/${total} pass in docs/testing/TESTING.md)`,
+  };
 }
 
 /**
@@ -309,10 +384,16 @@ export function formatReport(report) {
   const lines = report.checks.map(
     (c) => `[${c.status}] ${c.name}: ${c.detail}`,
   );
+  const hwRecorded = report.checks.some(
+    (c) => c.name === "hardware" && c.status === "ok",
+  );
+  const okSummary = hwRecorded
+    ? `doctor: foundation ready (${report.warnings} warning(s)); M4 hardware baseline recorded`
+    : `doctor: foundation ready (${report.warnings} warning(s)); physical device readiness deferred to M4`;
   lines.push(
     report.failures > 0
       ? `doctor: ${report.failures} failure(s), ${report.warnings} warning(s) - foundation NOT ready`
-      : `doctor: foundation ready (${report.warnings} warning(s)); physical device readiness deferred to M4`,
+      : okSummary,
   );
   return lines.join("\n");
 }
