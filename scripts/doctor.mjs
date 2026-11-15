@@ -257,18 +257,43 @@ export async function collectReport(deps) {
     add("dependencies", "ok", "yarn.lock and node_modules present");
   }
 
-  const evenhub = await deps.run("evenhub", ["--version"], 5000);
-  add(
-    "even tooling",
-    "deferred",
-    evenhub.code === 0
-      ? `evenhub ${short(evenhub.stdout || evenhub.stderr)} present; app/simulator use is M2, unverified`
-      : "global evenhub CLI/simulator not working here; installation and verification deferred to M2",
-  );
+  const localCliRel = "node_modules/.bin/evenhub";
+  const localSimRel = "node_modules/.bin/evenhub-simulator";
+  if (!deps.exists(localCliRel) || !deps.exists(localSimRel)) {
+    add(
+      "even tooling",
+      "fail",
+      "project-local evenhub CLI or simulator missing in node_modules/.bin; run: corepack yarn install",
+    );
+  } else {
+    const cli = await deps.run(
+      join(deps.rootPath, localCliRel),
+      ["--version"],
+      5000,
+    );
+    const sim = await deps.run(
+      join(deps.rootPath, localSimRel),
+      ["--version"],
+      5000,
+    );
+    if (cli.code !== 0 || sim.code !== 0) {
+      add(
+        "even tooling",
+        "fail",
+        `local Even tooling failed (cli=${cli.code ?? "err"}, sim=${sim.code ?? "err"})`,
+      );
+    } else {
+      add(
+        "even tooling",
+        "ok",
+        `local evenhub ${short(cli.stdout)}, evenhub-simulator ${short(sim.stdout)}`,
+      );
+    }
+  }
   add(
     "hardware",
     "deferred",
-    "G2/R1 device, developer access, and simulator checks are M2-M4, not run",
+    "physical G2/R1 device and Even app checks are M4, not run",
   );
 
   const failures = checks.filter((c) => c.status === "fail").length;
@@ -287,7 +312,7 @@ export function formatReport(report) {
   lines.push(
     report.failures > 0
       ? `doctor: ${report.failures} failure(s), ${report.warnings} warning(s) - foundation NOT ready`
-      : `doctor: foundation ready (${report.warnings} warning(s)); app/simulator/device readiness unverified`,
+      : `doctor: foundation ready (${report.warnings} warning(s)); physical device readiness deferred to M4`,
   );
   return lines.join("\n");
 }

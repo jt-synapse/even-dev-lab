@@ -33,14 +33,10 @@ function fakeDeps(overrides = {}) {
       if (cmd === "git" && args[0] === "remote") return { ...ok, stdout: "" };
       if (cmd === "mise") return { ...ok, stdout: "2026.9.15 macos-arm64" };
       if (cmd === "corepack") return { ...ok, stdout: "4.18.1" };
-      if (cmd === "evenhub")
-        return {
-          code: 1,
-          stdout: "",
-          stderr: "no version set",
-          timedOut: false,
-          missing: false,
-        };
+      if (cmd.endsWith("node_modules/.bin/evenhub"))
+        return { ...ok, stdout: "0.2.0" };
+      if (cmd.endsWith("node_modules/.bin/evenhub-simulator"))
+        return { ...ok, stdout: "0.9.5" };
       return ok;
     },
     readText: (rel) => files.get(rel) ?? null,
@@ -69,7 +65,7 @@ test("healthy machine passes with hardware deferred, not failed", async () => {
   const report = await collectReport(fakeDeps());
   assert.equal(report.failures, 0);
   assert.equal(checkNamed(report, "hardware").status, "deferred");
-  assert.equal(checkNamed(report, "even tooling").status, "deferred");
+  assert.equal(checkNamed(report, "even tooling").status, "ok");
   assert.match(formatReport(report), /foundation ready/);
 });
 

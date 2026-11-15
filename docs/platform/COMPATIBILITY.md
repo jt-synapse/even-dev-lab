@@ -1,39 +1,29 @@
 # Compatibility record
 
-All versions below were checked against npm registry metadata on **2026-11-14**. “Pinned” means installed in this repo and exercised by `corepack yarn check`. “Candidate” means researched for a later milestone — not installed, not run.
+All versions below were verified against npm registry metadata and installed/exercised in this repository on **2026-11-14** under `corepack yarn check` and live M2 simulator verification.
 
-## Pinned foundation toolchain (M1)
+## Pinned workspace toolchain & M2 dependencies
 
-| Tool        | Version | Why this version                                                                            |
-| ----------- | ------- | ------------------------------------------------------------------------------------------- |
-| Node        | 24.22.1 | Current official LTS on this machine; satisfies every engine range below                    |
-| Yarn        | 4.18.1  | Via Corepack (`packageManager`); `node-modules` linker; one lockfile                        |
-| Prettier    | 3.10.1  | Registry latest on 2026-11-14                                                               |
-| ESLint      | 10.14.0 | 10.15.0 was inside Yarn's 24 h `npmMinimalAgeGate` quarantine at install time — see ADR-002 |
-| @eslint/js  | 10.0.1  | Registry latest on 2026-11-14                                                               |
-| TypeScript  | 7.0.2   | Registry latest; M1 use is `checkJs` over tooling only — see ADR-003                        |
-| @types/node | 24.19.2 | Deliberately the Node 24 types line; registry latest overall is the Node 26 line            |
+| Tool / Package                     | Version | Owner                       | Verification status (2026-11-14)                                                                           |
+| ---------------------------------- | ------- | --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| Node                               | 24.22.1 | `mise.toml`, `.nvmrc`, root | Active LTS runtime; native TS type-stripping (`node --test`) exercised in `check`                          |
+| Yarn                               | 4.18.1  | `package.json` (Corepack)   | `node-modules` linker, single `yarn.lock`                                                                  |
+| Prettier                           | 3.10.1  | root `devDependencies`      | Exercised by `format:check`                                                                                |
+| ESLint                             | 10.14.0 | root `devDependencies`      | Exercised by `lint` (10.15.0 was inside Yarn's 24 h `npmMinimalAgeGate` quarantine — ADR-002)              |
+| `@eslint/js`                       | 10.0.1  | root `devDependencies`      | Exercised by `lint`                                                                                        |
+| `typescript-eslint`                | 8.72.2  | root `devDependencies`      | Exercised over `.ts` files + domain SDK/DOM import boundary rules                                          |
+| TypeScript                         | 6.0.3   | root + `apps/device-lab`    | Stepped down from M1's `7.0.2` to satisfy `typescript-eslint@8.72.2` peer `<6.1.0` — see ADR-003           |
+| `@types/node`                      | 24.19.2 | root + `apps/device-lab`    | Node 24 types line                                                                                         |
+| `vite`                             | 8.3.8   | `apps/device-lab`           | Builds `apps/device-lab` and official `minimal` template cleanly on Node 24.22.1                           |
+| `@evenrealities/even_hub_sdk`      | 0.0.16  | `apps/device-lab`           | Types verified (`dist/index.d.ts`); exercised in adapter tests and live simulator (`minAppVersion` 2.2.10) |
+| `@evenrealities/evenhub-cli`       | 0.2.0   | `apps/device-lab`           | Project-local `node_modules/.bin/evenhub`; verified `--version`, `qr --url`, and `pack --sdk-ver 0.0.16`   |
+| `@evenrealities/evenhub-simulator` | 0.9.5   | `apps/device-lab`           | Project-local (`sim-darwin-arm64@0.9.5`); verified `--version`, GUI/WebView startup, and HTTP API          |
 
-Version manager: mise (project pin in `mise.toml`). `.nvmrc` and `engines` carry the same pin for other setups. The doctor fails if the running Node disagrees with the pin.
+## External reference snapshots inspected in M2
 
-## M2 candidates (researched, not installed)
+- **Official templates:** `even-realities/evenhub-templates` @ `8cb01354f5ee914c5fab97d06e6d13b28eeb5815` — `minimal/` typechecked (`tsc --noEmit`) and built (`vite build`) cleanly against our pinned `typescript@6.0.3`, `even_hub_sdk@0.0.16`, and `vite@8.3.8`.
+- **Official agent skills:** `even-realities/everything-evenhub` @ `cb8321fbe2a11d5aaf08fa12088cbe9b9fc5bac2` (MIT License) — evaluated in M2 and adapted into four portable workspace skills under `.agents/skills/` (`evenhub-sdk-and-ui`, `evenhub-input-and-lifecycle`, `evenhub-simulator`, `evenhub-cli-local`) rewritten for `corepack yarn`, exact SDK `0.0.16` types, and strict local-only CLI rules.
 
-| Package                            | Candidate | Published engine range (Node)          | Permits Node 24? |
-| ---------------------------------- | --------- | -------------------------------------- | ---------------- |
-| `@evenrealities/even_hub_sdk`      | 0.0.16    | `^20.0.0 \|\| >=22.0.0`                | Yes              |
-| `@evenrealities/evenhub-cli`       | 0.2.0     | `^20.17.0 \|\| ^22.13.0 \|\| >=23.5.0` | Yes              |
-| `@evenrealities/evenhub-simulator` | 0.9.5     | none declared                          | Unproven         |
-| `vite`                             | 8.3.8     | `^20.19.0 \|\| >=22.12.0`              | Yes              |
+## Remaining hardware unknowns (deferred to M4)
 
-Notes:
-
-- SDK 0.0.16 declares `minAppVersion: 2.2.10`. Record the actual Even app and firmware versions when hardware testing starts (M4).
-- An engine range permitting Node 24 is not a compatibility proof. The simulator declaring no engine range proves nothing either way. Both are resolved by running the M2 diagnostic, not by reading metadata.
-- Official docs install the CLI and simulator globally (`npm install -g …`). This lab will prefer project-local, recorded versions (blueprint §6.2); if a tool turns out to require a global install, record its exact version and check command here.
-- Official skills bundle: `even-realities/everything-evenhub` @ `cb8321fbe2a11d5aaf08fa12088cbe9b9fc5bac2` (2026-10-21). Deferred to M2; re-check HEAD then.
-
-## Known unknowns carried into M2
-
-- Whether TypeScript 7.0.2 is clean against the official template and TypeScript lint tooling (ADR-003 revisit trigger).
-- Which SDK surface simulator 0.9.5 actually emulates (`contradicted` record in `CAPABILITIES.md`).
-- Phone OS/model, Even app version, and G2/R1 firmware for the target hardware (open questions).
+- Target phone OS/model, installed Even companion app version (`>= 2.2.10` required by SDK `0.0.16`), and physical G2/R1 firmware versions remain unrecorded until M4 hardware testing.
