@@ -23,14 +23,14 @@ Base URL: `http://127.0.0.1:9898` (keep loopback-only; never expose publicly).
 
 ## Verified Endpoints (`0.9.5`)
 
-| Method   | Endpoint                  | Contract                                                                                                                       |
-| -------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
-| `GET`    | `/api/ping`               | Returns `pong`.                                                                                                                |
-| `GET`    | `/api/console`            | Returns `{ entries: [{ id, level, message, ts }], total }`. Supports `?since_id=<nonNegativeInt>` (`since_id` must be `>= 0`). |
-| `DELETE` | `/api/console`            | Clears buffered console entries (poll for `APP_READY` **before** clearing so startup logs are not lost).                       |
-| `GET`    | `/api/screenshot/glasses` | `576×288` RGBA PNG of the LVGL framebuffer.                                                                                    |
-| `GET`    | `/api/screenshot/webview` | PNG snapshot of the companion WebView (`WKWebView` on macOS).                                                                  |
-| `POST`   | `/api/input`              | JSON `{ "action": "up" \| "down" \| "click" \| "double_click" \| "long_press" \| "long_press_release" \| "context_menu" }`.    |
+| Method   | Endpoint                  | Contract                                                                                                                                                        |
+| -------- | ------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`    | `/api/ping`               | Returns `pong`.                                                                                                                                                 |
+| `GET`    | `/api/console`            | Returns `{ entries: [{ id, level, message, ts }], total }`. Supports `?since_id=<nonNegativeInt>` (returns `id > since_id`; pass last seen `id`, not `id + 1`). |
+| `DELETE` | `/api/console`            | Clears buffered console entries (poll for `APP_READY` **before** clearing so startup logs are not lost).                                                        |
+| `GET`    | `/api/screenshot/glasses` | `576×288` RGBA PNG of the LVGL framebuffer.                                                                                                                     |
+| `GET`    | `/api/screenshot/webview` | PNG snapshot of the companion WebView (`WKWebView` on macOS).                                                                                                   |
+| `POST`   | `/api/input`              | JSON `{ "action": "up" \| "down" \| "click" \| "double_click" \| "long_press" \| "long_press_release" \| "context_menu" }`.                                     |
 
 ## Critical Screenshot Rule (RGBA Alpha Channel)
 
@@ -40,6 +40,6 @@ Base URL: `http://127.0.0.1:9898` (keep loopback-only; never expose publicly).
 ## Known Simulator vs. Real G2/R1 Differences
 
 - `onDeviceStatusChanged` is **not** emitted in simulator `0.9.5`.
-- `sysEvent.eventSource` is hardcoded to `1` (`TOUCH_EVENT_FROM_GLASSES_R`); R1 ring (`2`) and left-temple (`3`) origin discrimination requires M4 hardware testing.
+- `sysEvent.eventSource` is `1` (`TOUCH_EVENT_FROM_GLASSES_R`) on `click` in `0.9.5`, and omitted (`origin=unknown`) on `long_press` / `long_press_release`; R1 ring (`2`) and left-temple (`3`) origin discrimination requires M4 hardware testing.
 - `imuData` is always `null`.
 - BLE latency, packet contention, and phone lock/background lifecycle are not reproduced.

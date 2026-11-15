@@ -9,6 +9,7 @@ import {
   TextContainerProperty,
   TextContainerUpgrade,
   waitForEvenAppBridge,
+  type DeviceInfo,
   type DeviceStatus,
   type EvenHubEvent,
   type LaunchSource,
@@ -34,9 +35,12 @@ export type BridgeConnectionStatus =
   "connecting" | "ready" | "mock" | "failed" | "closed";
 
 export interface DeviceStatusSummary {
+  readonly model?: string | null;
   readonly connectType: string;
   readonly batteryLevel: number | null;
   readonly isWearing: boolean | null;
+  readonly isCharging?: boolean | null;
+  readonly isInCase?: boolean | null;
 }
 
 export interface DiagnosticSessionSnapshot {
@@ -55,6 +59,7 @@ export interface EvenBridgeTransport {
   ): Promise<StartUpPageCreateResult>;
   textContainerUpgrade(container: TextContainerUpgrade): Promise<boolean>;
   shutDownPageContainer(exitMode?: number): Promise<boolean>;
+  getDeviceInfo?: () => Promise<DeviceInfo | null>;
   onEvenHubEvent(callback: (event: EvenHubEvent) => void): () => void;
   onLaunchSource(callback: (source: LaunchSource) => void): () => void;
   onDeviceStatusChanged(callback: (status: DeviceStatus) => void): () => void;
@@ -389,10 +394,19 @@ export async function startDiagnosticSession(
       .then(async () => {
         if (disposed) return;
         await withTimeout(fn(), callTimeoutMs, label);
+        if (
+          !disposed &&
+          connectionStatus === "ready" &&
+          errorMessage !== null
+        ) {
+          errorMessage = null;
+          emit();
+        }
       })
       .catch((err: unknown) => {
         if (disposed) return;
         const msg = err instanceof Error ? err.message : String(err);
+        console.warn(`[device-lab] BRIDGE_OP_ERROR ${label}: ${msg}`);
         errorMessage = `${label}: ${msg}`;
         emit();
       });
@@ -498,9 +512,12 @@ export async function startDiagnosticSession(
     cleanups.push(
       resolved.onDeviceStatusChanged((status) => {
         deviceStatus = {
+          model: deviceStatus?.model ?? null,
           connectType: String(status.connectType),
           batteryLevel: status.batteryLevel ?? null,
           isWearing: status.isWearing ?? null,
+          isCharging: status.isCharging ?? null,
+          isInCase: status.isInCase ?? null,
         };
         emit();
       }),
@@ -535,6 +552,57 @@ export async function startDiagnosticSession(
     errorMessage = null;
     emit();
     options.onReady?.({ mode: "bridge" });
+
+    if (typeof resolved.getDeviceInfo === "function") {
+      let infoTimer: ReturnType<typeof setTimeout> | null = null;
+      const cancelInfoTimer = () => {
+        if (infoTimer !== null) {
+          clearTimeout(infoTimer);
+          infoTimer = null;
+        }
+      };
+      cleanups.push(cancelInfoTimer);
+
+      void Promise.race([
+        Promise.resolve().then(() => resolved.getDeviceInfo?.()),
+        new Promise<null>((resolve) => {
+          infoTimer = setTimeout(
+            () => resolve(null),
+            Math.min(callTimeoutMs, 2000),
+          );
+        }),
+      ])
+        .then((info) => {
+          cancelInfoTimer();
+          if (disposed || connectionStatus !== "ready" || !info) {
+            return;
+          }
+          // Merge initial DeviceInfo while preserving newer status notifications (never store SN).
+          const nextModel = info.model
+            ? String(info.model)
+            : (deviceStatus?.model ?? null);
+          deviceStatus = deviceStatus
+            ? {
+                ...deviceStatus,
+                model: nextModel,
+              }
+            : {
+                model: nextModel,
+                connectType: info.status?.connectType
+                  ? String(info.status.connectType)
+                  : "unknown",
+                batteryLevel: info.status?.batteryLevel ?? null,
+                isWearing: info.status?.isWearing ?? null,
+                isCharging: info.status?.isCharging ?? null,
+                isInCase: info.status?.isInCase ?? null,
+              };
+          emit();
+        })
+        .catch(() => {
+          cancelInfoTimer();
+          // Non-fatal: simulator or older hosts may omit or reject getDeviceInfo().
+        });
+    }
   } catch (err: unknown) {
     if (!disposed) {
       connectionStatus = "failed";

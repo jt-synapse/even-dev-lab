@@ -15,13 +15,15 @@
   "scripts": {
     "doctor": "node scripts/doctor.mjs",
     "dev:lab": "yarn workspace @even-dev-lab/device-lab dev",
+    "preview:lab": "yarn workspace @even-dev-lab/device-lab preview",
     "sim:lab": "node scripts/sim-lab.mjs",
+    "test:sim": "node scripts/test-sim.mjs",
     "qr:lab": "node scripts/qr-lab.mjs",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json --noEmit && yarn workspace @even-dev-lab/device-lab typecheck",
-    "test": "node --test scripts/doctor.test.mjs && yarn workspace @even-dev-lab/device-lab test",
+    "test": "node --test scripts/doctor.test.mjs scripts/sim-harness.test.mjs && yarn workspace @even-dev-lab/device-lab test",
     "build": "yarn workspace @even-dev-lab/device-lab build",
     "check": "node scripts/doctor.mjs && prettier --check . && eslint . && yarn typecheck && yarn test && yarn build"
   },

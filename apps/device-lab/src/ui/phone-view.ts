@@ -56,6 +56,32 @@ function metricCell(
   return wrap;
 }
 
+export function formatDeviceStatusSummary(
+  status: DiagnosticSessionSnapshot["deviceStatus"],
+): string {
+  if (!status) {
+    return "status not emitted";
+  }
+  const parts: string[] = [];
+  if (status.model) {
+    parts.push(status.model);
+  }
+  parts.push(status.connectType);
+  if (status.batteryLevel !== null) {
+    parts.push(`${status.batteryLevel}%`);
+  }
+  if (status.isWearing !== null && status.isWearing !== undefined) {
+    parts.push(status.isWearing ? "worn" : "not-worn");
+  }
+  if (status.isCharging) {
+    parts.push("charging");
+  }
+  if (status.isInCase) {
+    parts.push("in-case");
+  }
+  return parts.join(" · ");
+}
+
 export function renderPhoneDiagnosticView(
   root: HTMLElement,
   snapshot: DiagnosticSessionSnapshot,
@@ -110,13 +136,7 @@ export function renderPhoneDiagnosticView(
     metricCell(
       "Host Context",
       snapshot.launchSource ?? "n/a",
-      snapshot.deviceStatus
-        ? `${snapshot.deviceStatus.connectType}${
-            snapshot.deviceStatus.batteryLevel !== null
-              ? ` · ${snapshot.deviceStatus.batteryLevel}%`
-              : ""
-          }`
-        : "status not emitted",
+      formatDeviceStatusSummary(snapshot.deviceStatus),
     ),
   );
   statusCard.append(grid);

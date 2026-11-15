@@ -1,6 +1,6 @@
 # even-dev-lab
 
-A fresh, reusable development workspace for building tools for Even Realities G2 glasses and the R1 ring. No product has been selected. This repository has completed **M0–M2**: pinned toolchain, environment doctor, adapted Even Hub agent skills, and the minimal `apps/device-lab` diagnostic app verified against the local EvenHub simulator (`0.9.5`). Physical G2/R1 device validation remains deferred to M4.
+A fresh, reusable development workspace for building tools for Even Realities G2 glasses and the R1 ring. No product has been selected. This repository has completed **M0–M3**: pinned toolchain, environment doctor, adapted Even Hub agent skills, the minimal `apps/device-lab` diagnostic app, and the repeatable automated simulator suite (`corepack yarn test:sim`) verified against `evenhub-simulator@0.9.5`. Physical G2/R1 device validation (`M4`, `0/9` cases run) is ready for manual execution via [docs/testing/M4_HARDWARE_RUNBOOK.md](docs/testing/M4_HARDWARE_RUNBOOK.md).
 
 The governing specification is [docs/WORKSPACE_BLUEPRINT.md](docs/WORKSPACE_BLUEPRINT.md). Current status lives in [docs/planning/STATUS.md](docs/planning/STATUS.md).
 
@@ -18,19 +18,21 @@ Yarn is not expected on PATH. `corepack yarn <cmd>` is the working invocation ev
 
 ## Commands
 
-| Command                            | What it does                                                                                 |
-| ---------------------------------- | -------------------------------------------------------------------------------------------- |
-| `corepack yarn doctor`             | Verifies host pins and project-local Even CLI/simulator (`0.2.0` / `0.9.5`); redacts keys    |
-| `corepack yarn format`             | Reformats the repo with Prettier                                                             |
-| `corepack yarn format:check`       | Fails if any file is unformatted                                                             |
-| `corepack yarn lint`               | ESLint (`eslint` + `typescript-eslint`, including domain SDK/DOM import boundaries)          |
-| `corepack yarn typecheck`          | Strict TypeScript checks across root tooling (`checkJs`) and `apps/device-lab`               |
-| `corepack yarn test`               | Runs `doctor` tests plus `apps/device-lab` domain and SDK-adapter tests (`node --test`)      |
-| `corepack yarn build`              | Builds `apps/device-lab` production bundle with Vite                                         |
-| `corepack yarn check`              | Runs `doctor`, `format:check`, `lint`, `typecheck`, `test`, and `build` in order             |
-| `corepack yarn dev:lab`            | Starts the `apps/device-lab` Vite dev server (`127.0.0.1:5173`; append `?mock=1` in browser) |
-| `corepack yarn sim:lab`            | Starts `apps/device-lab` dev server and attaches the project-local EvenHub simulator         |
-| `corepack yarn qr:lab --url <url>` | Generates a local QR code for an explicit LAN URL (never triggers login or upload)           |
+| Command                            | What it does                                                                                                     |
+| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `corepack yarn doctor`             | Verifies host pins and project-local Even CLI/simulator (`0.2.0` / `0.9.5`); redacts keys                        |
+| `corepack yarn format`             | Reformats the repo with Prettier                                                                                 |
+| `corepack yarn format:check`       | Fails if any file is unformatted                                                                                 |
+| `corepack yarn lint`               | ESLint (`eslint` + `typescript-eslint`, including domain SDK/DOM import boundaries)                              |
+| `corepack yarn typecheck`          | Strict TypeScript checks across root tooling (`checkJs`) and `apps/device-lab`                                   |
+| `corepack yarn test`               | Runs `doctor` tests plus `apps/device-lab` domain and SDK-adapter tests (`node --test`)                          |
+| `corepack yarn build`              | Builds `apps/device-lab` production bundle with Vite                                                             |
+| `corepack yarn check`              | Runs `doctor`, `format:check`, `lint`, `typecheck`, `test`, and `build` in order                                 |
+| `corepack yarn dev:lab`            | Starts `apps/device-lab` Vite dev server (`DEV_HOST`/`DEV_PORT`, default `127.0.0.1:5173`; `?mock=1` in browser) |
+| `corepack yarn preview:lab`        | Serves built `apps/device-lab` bundle (`DEV_HOST`/`PREVIEW_PORT`, default `127.0.0.1:4173`, no HMR)              |
+| `corepack yarn sim:lab`            | Starts `apps/device-lab` dev server and attaches the project-local EvenHub simulator                             |
+| `corepack yarn test:sim`           | Runs repeatable automated simulator smoke checks (console, input state, RGBA framebuffer, artifact capture)      |
+| `corepack yarn qr:lab --url <url>` | Generates a local QR code for an explicit LAN URL (never triggers login or upload)                               |
 
 ## Troubleshooting
 
@@ -41,17 +43,17 @@ Yarn is not expected on PATH. `corepack yarn <cmd>` is the working invocation ev
 
 ## Repository layout
 
-| Path                          | Purpose                                                                          |
-| ----------------------------- | -------------------------------------------------------------------------------- |
-| `apps/device-lab/`            | Minimal G2/R1 diagnostic app (`domain/`, thin `even/` SDK adapter, `ui/`, tests) |
-| `.agents/skills/`             | Portable Even Hub SDK, input/lifecycle, simulator, and local CLI agent skills    |
-| `scripts/`                    | Environment checker (`doctor`), `sim:lab`, and `qr:lab` local helper scripts     |
-| `docs/WORKSPACE_BLUEPRINT.md` | The governing specification (preserved byte-identical)                           |
-| `docs/platform/`              | Capability register, compatibility record, sources                               |
-| `docs/decisions/`             | Architecture decision records (`ADR-001`…`ADR-003`)                              |
-| `docs/testing/`               | Test layers, pending M4 hardware matrix, evidence template                       |
-| `docs/planning/`              | Status, milestones, open questions                                               |
-| `packages/`, `experiments/`   | Workspace globs declared; created on demand (shared code requires 2 consumers)   |
+| Path                          | Purpose                                                                                             |
+| ----------------------------- | --------------------------------------------------------------------------------------------------- |
+| `apps/device-lab/`            | Minimal G2/R1 diagnostic app (`domain/`, thin `even/` SDK adapter, `ui/`, tests)                    |
+| `.agents/skills/`             | Portable Even Hub SDK, input/lifecycle, simulator, and local CLI agent skills                       |
+| `scripts/`                    | `doctor`, `sim:lab`, `test:sim` harness (`sim-harness`, `png-inspect`), and `qr:lab` helper scripts |
+| `docs/WORKSPACE_BLUEPRINT.md` | The governing specification (preserved byte-identical)                                              |
+| `docs/platform/`              | Capability register, compatibility record, sources                                                  |
+| `docs/decisions/`             | Architecture decision records (`ADR-001`…`ADR-003`)                                                 |
+| `docs/testing/`               | Test layers, M4 hardware baseline runbook, pending matrix, evidence template                        |
+| `docs/planning/`              | Status, milestones, open questions                                                                  |
+| `packages/`, `experiments/`   | Workspace globs declared; created on demand (shared code requires 2 consumers)                      |
 
 ## Evidence discipline
 

@@ -6,22 +6,22 @@ Each record carries a source, date, applicable versions, evidence state, limitat
 
 ## Core platform capability summary
 
-| ID      | Statement                                                                                        | State              | Next action                                                               |
-| ------- | ------------------------------------------------------------------------------------------------ | ------------------ | ------------------------------------------------------------------------- |
-| CAP-001 | Even Hub plugin logic runs in a companion WebView (`WKWebView` in macOS simulator)               | verified-simulator | Verify bridge startup in target phone Even app WebView (M4)               |
-| CAP-002 | Glasses UI uses SDK containers (`createStartUpPageContainer`, `textContainerUpgrade`)            | verified-simulator | Verify container startup & upgrade latency on physical G2 (M4)            |
-| CAP-003 | Glasses framebuffer is `576 × 288` monochrome green (RGBA PNG with 4-bit alpha intensity in sim) | verified-simulator | Verify visual legibility & optical margins on physical G2 lenses (M4)     |
-| CAP-004 | Container limits (`<= 4` total per page; 1 `isEventCapture: 1` container) enforced by SDK/sim    | verified-simulator | Verify representative multi-container layouts on physical G2 (M4)         |
-| CAP-005 | R1 ring and G2 temple controls supply tap, double-tap, scroll, and long-press events             | documented         | Capture real hardware event streams from both temples and R1 ring (M4)    |
-| CAP-006 | `textEvent`/`listEvent` omit `eventSource`; `sysEvent` preserves it on long-press since `0.0.15` | verified-simulator | Verify real `eventSource` (`1`, `2`, `3`) payloads on G2 + R1 (M4)        |
-| CAP-007 | Simulator `0.9.5` provides HTTP `/api/ping`, `/api/console`, `/api/input`, `/api/screenshot/*`   | verified-simulator | Promote into repeatable `corepack yarn test:sim` suite (M3)               |
-| CAP-008 | Simulator omits `onDeviceStatusChanged`, hardcodes `sysEvent.eventSource=1`, no real BLE timing  | verified-simulator | Keep M4 hardware matrix mandatory and distinct from simulator checks      |
-| CAP-009 | Direct generic Bluetooth keyboard-to-G2 pairing is available                                     | unknown            | No documented support; do not depend on it                                |
-| CAP-010 | A phone-paired keyboard can supply text to our plugin's WebView                                  | unknown            | Focus/text/shortcut/lock-state experiment on target phone (M6)            |
-| CAP-011 | All desired workflows work with no internet                                                      | unknown            | Controlled offline test matrix once a concrete workflow exists            |
-| CAP-012 | `bridge.audioControl(isOpen, AudioInputSource)` streams `16 kHz` PCM (`AudioEvent.audioPcm`)     | documented         | Exercise permission & stream lifecycle in dedicated post-M4 experiment    |
-| CAP-013 | `bridge.captureImageFromCamera()` / `pickImageFromAlbum()` return native `AppImageAsset \| null` | documented         | Verify native camera/album bridge prompts & payload size on phone post-M4 |
-| CAP-014 | Local Node/Vite dev API proxy holds `.env` provider keys server-side, off the client WebView     | proposed           | Keep M2–M3 zero-backend; introduce when first AI/media experiment starts  |
+| ID      | Statement                                                                                        | State              | Next action                                                                |
+| ------- | ------------------------------------------------------------------------------------------------ | ------------------ | -------------------------------------------------------------------------- |
+| CAP-001 | Even Hub plugin logic runs in a companion WebView (`WKWebView` in macOS simulator)               | verified-simulator | Verify bridge startup in target phone Even app WebView (M4)                |
+| CAP-002 | Glasses UI uses SDK containers (`createStartUpPageContainer`, `textContainerUpgrade`)            | verified-simulator | Verify container startup & upgrade latency on physical G2 (M4)             |
+| CAP-003 | Glasses framebuffer is `576 × 288` monochrome green (RGBA PNG with 4-bit alpha intensity in sim) | verified-simulator | Verify visual legibility & optical margins on physical G2 lenses (M4)      |
+| CAP-004 | Container limits (`<= 4` total per page; 1 `isEventCapture: 1` container) enforced by SDK/sim    | verified-simulator | Verify representative multi-container layouts on physical G2 (M4)          |
+| CAP-005 | R1 ring and G2 temple controls supply tap, double-tap, scroll, and long-press events             | documented         | Capture real hardware event streams from both temples and R1 ring (M4)     |
+| CAP-006 | `textEvent`/`listEvent` omit `eventSource`; `sysEvent` preserves it on long-press since `0.0.15` | verified-simulator | Verify real `eventSource` (`1`, `2`, `3`) payloads on G2 + R1 (M4)         |
+| CAP-007 | Simulator `0.9.5` provides HTTP `/api/ping`, `/api/console`, `/api/input`, `/api/screenshot/*`   | verified-simulator | Covered by `corepack yarn test:sim` (`since_id` is strict `id > since_id`) |
+| CAP-008 | Simulator omits `onDeviceStatusChanged`, emits `eventSource=1` on click only, no BLE timing      | verified-simulator | Keep M4 hardware matrix mandatory and distinct from simulator checks       |
+| CAP-009 | Direct generic Bluetooth keyboard-to-G2 pairing is available                                     | unknown            | No documented support; do not depend on it                                 |
+| CAP-010 | A phone-paired keyboard can supply text to our plugin's WebView                                  | unknown            | Focus/text/shortcut/lock-state experiment on target phone (M6)             |
+| CAP-011 | All desired workflows work with no internet                                                      | unknown            | Controlled offline test matrix once a concrete workflow exists             |
+| CAP-012 | `bridge.audioControl(isOpen, AudioInputSource)` streams `16 kHz` PCM (`AudioEvent.audioPcm`)     | documented         | Exercise permission & stream lifecycle in dedicated post-M4 experiment     |
+| CAP-013 | `bridge.captureImageFromCamera()` / `pickImageFromAlbum()` return native `AppImageAsset \| null` | documented         | Verify native camera/album bridge prompts & payload size on phone post-M4  |
+| CAP-014 | Local Node/Vite dev API proxy holds `.env` provider keys server-side, off the client WebView     | proposed           | Keep M2–M3 zero-backend; introduce when first AI/media experiment starts   |
 
 Do not encode a Bluetooth version into application logic: earlier sources disagreed (blueprint §4).
 
@@ -73,6 +73,18 @@ Do not encode a Bluetooth version into application logic: earlier sources disagr
 - **Source:** `docs/WORKSPACE_BLUEPRINT.md` §3 and §14 (aligned 2026-11-14).
 - **Limitation:** Engineering architecture choice; `app.json` `"network"` permission (`whitelist` origins) on the companion app must also be verified when calling a LAN dev proxy from a physical phone.
 - **Next action:** Keep M2–M3 zero-backend; introduce only when the first voice/vision/LLM experiment begins.
+
+## Evidence added during M3 & M4 prep (2026-11-14)
+
+### CAP-001, CAP-002, CAP-003, CAP-006, CAP-007, CAP-008 — Repeatable simulator automation & startup telemetry (`verified-simulator`)
+
+- **Source:** `corepack yarn test:sim` (`scripts/sim-harness.mjs`, `scripts/png-inspect.mjs`) against `apps/device-lab` and `@evenrealities/evenhub-simulator@0.9.5` (2026-11-14).
+- **Findings:**
+  - `GET /api/console?since_id=<N>` in `evenhub-simulator@0.9.5` filters strictly (`id > since_id`, 1-based); callers must pass the last seen `id` rather than `id + 1`.
+  - Cold-start non-fatal `bridge.getDeviceInfo()` resolves cleanly in `evenhub-simulator@0.9.5` and populates `Host Context` (`g2 · connected · 100% · worn`) even though `onDeviceStatusChanged` and `onLaunchSource` are not emitted automatically in simulator runs. `sn` is explicitly never stored or surfaced.
+  - Across all 6 automated inputs (`click`, `down`, `up`, `long_press`, `long_press_release`, `click`), `[device-lab] STATE` progressed deterministically (`phase`, `taps`, `focus`, `seq`), zero runtime/console errors occurred, and `576×288` RGBA PNG checks confirmed non-zero alpha rendering (`4,913` lit pixels, `160,975` transparent pixels) plus localized framebuffer updates (`1,253`–`6,809` changed pixels). In `0.9.5`, `click` supplied `sysEvent.eventSource=1` (`glasses_right`), whereas `long_press`/`long_press_release` (`eventType: 9`/`10`) arrived without `eventSource` (`unknown`).
+- **Limitation:** Still `verified-simulator` only (`0/9` M4 physical device cases run). Physical G2/R1 `eventSource` (`1`/`2`/`3`), `onDeviceStatusChanged`, optical margins, and phone background/lock/offline behaviors await M4 hardware execution via [docs/testing/M4_HARDWARE_RUNBOOK.md](../testing/M4_HARDWARE_RUNBOOK.md).
+- **Next action:** Execute the 9 cases in [M4_HARDWARE_RUNBOOK.md](../testing/M4_HARDWARE_RUNBOOK.md) on physical phone + G2 + R1 before marking any capability `verified-device`.
 
 ## Resolved M1 contradictions & tooling records
 

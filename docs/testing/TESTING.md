@@ -16,9 +16,11 @@ In M1 the only tests are the doctor's unit tests (`scripts/doctor.test.mjs`, Nod
 
 Start the dev server, start the simulator, wait for actual app readiness, capture initial state, inject a supported action, verify the expected state/rendering, capture logs, clean up every process the script started. A nonempty screenshot is not proof of the expected screen; prefer state checks and meaningful image assertions. Verify endpoint contracts against the installed simulator version — do not copy unverified documentation snippets into automation.
 
+Run `corepack yarn test:sim` to execute the automated simulator suite (`scripts/test-sim.mjs`, `scripts/sim-harness.mjs`, `scripts/png-inspect.mjs`). Latest run outputs (and failure screenshots/logs on failure) are saved under gitignored `artifacts/sim/latest/`.
+
 ## Hardware matrix — all pending
 
-Nothing below has been run. Each case records its result in an evidence record when the hardware is available (M4); unavailable cases stay **pending**, never pass.
+Nothing below has been run (**0 / 9** cases executed). Follow the step-by-step LAN, QR, and static-preview protocol in [M4_HARDWARE_RUNBOOK.md](M4_HARDWARE_RUNBOOK.md) when physical G2 + R1 + phone hardware is available. Each case records its result in an evidence record when executed (M4); unavailable cases stay **pending**, never pass.
 
 | Case                          | Status  |
 | ----------------------------- | ------- |

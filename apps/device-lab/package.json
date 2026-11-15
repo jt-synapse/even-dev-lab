@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -p tsconfig.json --noEmit && vite build",
-    "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
+    "preview": "vite preview",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "node --test test/domain.test.ts test/adapter.test.ts"
   },

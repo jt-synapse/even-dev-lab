@@ -18,8 +18,11 @@ controller = await startDiagnosticSession({
   mockMode,
   onSnapshot(snapshot) {
     renderPhoneDiagnosticView(appRoot, snapshot, () => controller);
+    const seq = snapshot.domain.nextSeq - 1;
+    const lastCmd = snapshot.domain.lastInput?.command ?? "none";
+    const lastOrigin = snapshot.domain.lastInput?.origin ?? "none";
     console.info(
-      `[device-lab] STATE phase=${snapshot.domain.phase} taps=${snapshot.domain.tapCount} focus=${snapshot.domain.focusIndex} status=${snapshot.connectionStatus}`,
+      `[device-lab] STATE phase=${snapshot.domain.phase} taps=${snapshot.domain.tapCount} focus=${snapshot.domain.focusIndex} status=${snapshot.connectionStatus} seq=${seq} last=${lastCmd} origin=${lastOrigin}`,
     );
   },
   onReady({ mode }) {
