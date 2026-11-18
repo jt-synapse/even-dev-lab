@@ -6,7 +6,7 @@ import {
   type KnowledgeDocument,
   type ScoredKnowledgeChunk,
 } from "../domain/knowledge-base.ts";
-import type { GroundingMode } from "../domain/copilot.ts";
+import type { CopilotTurnResult, GroundingMode } from "../domain/copilot.ts";
 
 export interface AudioCopilotRequest {
   readonly audioWavBase64: string;
@@ -27,6 +27,7 @@ export interface VisionCopilotRequest {
 export interface TextCopilotRequest {
   readonly question: string;
   readonly documents: readonly KnowledgeDocument[];
+  readonly history?: readonly CopilotTurnResult[];
 }
 
 export interface CopilotAiResponse {
@@ -126,6 +127,48 @@ function formatKbContextBlock(
     .join("\n\n");
 }
 
+function excerpt(text: string, limit: number): string {
+  if (text.length <= limit) return text;
+  const head = Math.floor(limit * 0.7);
+  return text.slice(0, head) + "\n…\n" + text.slice(-(limit - head - 3));
+}
+
+// These cues only prioritize excerpts under the prompt budget. They never
+// convert a user question or a Cadence suggestion into an implementation fact.
+function describesProblemUpdate(text: string): boolean {
+  return /(?:^|[.!?]\s+)(?:i|we|my|our)\b|\b(?:constraints?|assume|must|instead|actually)\b/i.test(
+    text,
+  );
+}
+
+function buildTypedProblemContext(history: readonly CopilotTurnResult[]) {
+  const first = history[0];
+  if (!first) return undefined;
+  const recentStart = Math.max(0, history.length - 4);
+  const older = history.slice(1, recentStart).map((turn, index) => ({
+    turn: index + 2,
+    user: excerpt(turn.transcript, 300),
+    priority: describesProblemUpdate(turn.transcript),
+  }));
+  // Keep the most recent constraints/updates first, then fill spare space
+  // with other user messages. Restore chronological order for the model.
+  const earlierUserExcerpts = older
+    .sort((a, b) => Number(b.priority) - Number(a.priority) || b.turn - a.turn)
+    .slice(0, 8)
+    .sort((a, b) => a.turn - b.turn)
+    .map(({ turn, user }) => ({ turn, user }));
+
+  return {
+    originalProblem: excerpt(first.transcript, 4000),
+    earlierUserExcerpts,
+    recentExchanges: history.slice(recentStart).map((turn, index) => ({
+      turn: recentStart + index + 1,
+      user: excerpt(turn.transcript, 1200),
+      cadenceSuggestion: excerpt(turn.answerBullets.join("\n"), 800),
+    })),
+  };
+}
+
 function buildAnswerSystemInstruction(
   hasKbMatch: boolean,
   kbMatches: readonly ScoredKnowledgeChunk[],
@@ -171,9 +214,9 @@ export class GeminiInteractionsProvider implements CopilotAiProvider {
 
   constructor(options: GeminiProviderOptions) {
     this.apiKey = options.apiKey;
-    this.model = options.model?.trim() || "gemini-4-hydrogen";
+    this.model = options.model?.trim() || "gemini-3.5-flash-lite";
     this.sttModel = options.sttModel?.trim() || "gemini-3.5-transcribe";
-    this.timeoutMs = options.timeoutMs ?? 20000;
+    this.timeoutMs = options.timeoutMs ?? 60000;
     this.fetchFn = options.fetchFn ?? fetch;
     this.name = `gemini (${this.model})`;
   }
@@ -216,13 +259,18 @@ export class GeminiInteractionsProvider implements CopilotAiProvider {
         model: this.sttModel,
         input: [
           {
-            type: "audio",
-            data: audioWavBase64,
-            mime_type: mimeType,
-          },
-          {
-            type: "text",
-            text: "Transcribe the spoken interview question verbatim as plain text.",
+            type: "user_input",
+            content: [
+              {
+                type: "audio",
+                data: audioWavBase64,
+                mime_type: mimeType,
+              },
+              {
+                type: "text",
+                text: "Transcribe the spoken interview question verbatim as plain text.",
+              },
+            ],
           },
         ],
       });
@@ -234,13 +282,18 @@ export class GeminiInteractionsProvider implements CopilotAiProvider {
         generation_config: { thinking_level: "low" },
         input: [
           {
-            type: "audio",
-            data: audioWavBase64,
-            mime_type: mimeType,
-          },
-          {
-            type: "text",
-            text: "Return ONLY the verbatim transcript of what is spoken in this audio.",
+            type: "user_input",
+            content: [
+              {
+                type: "audio",
+                data: audioWavBase64,
+                mime_type: mimeType,
+              },
+              {
+                type: "text",
+                text: "Return ONLY the verbatim transcript of what is spoken in this audio.",
+              },
+            ],
           },
         ],
       });
@@ -254,6 +307,7 @@ export class GeminiInteractionsProvider implements CopilotAiProvider {
     const question =
       req.question.trim() || "Summarize key candidate strengths.";
     const retrieval = retrieveRelevantKbChunks(question, req.documents, 3);
+    const context = buildTypedProblemContext(req.history ?? []);
     const systemInstruction = buildAnswerSystemInstruction(
       retrieval.hasRelevantMatch,
       retrieval.matchedChunks,
@@ -261,9 +315,17 @@ export class GeminiInteractionsProvider implements CopilotAiProvider {
 
     const rawAnswer = await this.callInteractions({
       model: this.model,
-      system_instruction: systemInstruction,
+      system_instruction: context
+        ? [
+            systemInstruction,
+            "Answer currentQuestion using the supplied history of this coding problem. Follow the latest user corrections to earlier constraints or approaches.",
+            "Only attribute an implementation to the user when supported by their own messages. Prior Cadence suggestions are proposals. If their actual implementation is unclear and it matters, ask a brief clarifying question.",
+          ].join("\n")
+        : systemInstruction,
       generation_config: { thinking_level: "low" },
-      input: question,
+      input: context
+        ? JSON.stringify({ ...context, currentQuestion: question })
+        : question,
     });
 
     return {
@@ -327,13 +389,18 @@ export class GeminiInteractionsProvider implements CopilotAiProvider {
       generation_config: { thinking_level: "low" },
       input: [
         {
-          type: "image",
-          data: req.imageBase64,
-          mime_type: req.mimeType,
-        },
-        {
-          type: "text",
-          text: userPrompt,
+          type: "user_input",
+          content: [
+            {
+              type: "image",
+              data: req.imageBase64,
+              mime_type: req.mimeType,
+            },
+            {
+              type: "text",
+              text: userPrompt,
+            },
+          ],
         },
       ],
     });
@@ -390,9 +457,24 @@ export class MockCopilotProvider implements CopilotAiProvider {
       };
     }
 
+    const history = req.history ?? [];
+    const first = history[0];
+    const prior =
+      history.findLast((turn) => describesProblemUpdate(turn.transcript)) ??
+      history.at(-1);
+    const offlineContext = first
+      ? [`Active problem: ${excerpt(first.transcript, 180)}`]
+      : [];
+    if (prior && prior.turnId !== first?.turnId) {
+      offlineContext.push(
+        `Earlier user message: ${excerpt(prior.transcript, 180)}`,
+      );
+    }
+
     return {
       transcript: question,
       answerBullets: [
+        ...offlineContext,
         "Clarify constraints, scale, and target latency upfront.",
         "Walk through core data model and algorithmic trade-offs.",
         "Highlight failure handling, observability, and edge cases.",

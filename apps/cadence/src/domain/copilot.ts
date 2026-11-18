@@ -51,6 +51,8 @@ export interface CadenceEventRecord extends NormalizedCadenceInput {
 
 export interface CopilotTurnResult {
   readonly turnId: string;
+  readonly sessionId?: string;
+  readonly problemId?: string;
   readonly trigger: AnswerTriggerKind;
   readonly transcript: string;
   readonly answerBullets: readonly string[];

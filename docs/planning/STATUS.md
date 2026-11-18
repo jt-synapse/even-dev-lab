@@ -1,10 +1,16 @@
 # Status
 
-Updated: 2026-11-17
+Updated: 2026-11-18
 
 ## Current milestone
 
 **M4 Hardware baseline — complete; Cadence (`apps/cadence`) v0.1.0 implemented (`ADR-005`).** All `9 / 9` cases in the hardware matrix (`docs/testing/TESTING.md` `HW-001`–`HW-009`) have been executed by JT against `apps/device-lab` on **`iPhone 17 Pro Max` / `iOS 27.2`**, **`Even App v2.4.0`**, **`Even G2 2.4.0.24`**, and **`Even R1 2.3.2.0008`**. Building on those verified capabilities, **`apps/cadence`** (`@even-dev-lab/cadence`) is now wired with R1 press-and-hold voice capture (`16 kHz` G2/Phone/Mac mic -> RIFF WAV -> Speech-to-Text), Mac Logitech webcam capture (`?role=operator` WebRTC + macOS AVFoundation fallback), Knowledge Base retrieval (`[KB]` grounded vs `[GEN]` fallback), and a server-side Gemini Interactions API proxy (`gemini-4-hydrogen` + `gemini-3.5-transcribe`).
+
+### Cadence typed session memory
+
+Typed questions in the companion's **Ask Copilot** box share one active problem on the Mac. The first question establishes the problem. Later requests include the opening prompt, selected earlier user updates, and recent exchanges with the user's words and Cadence's suggestions labeled separately. Idle time and restarting the companion preserve the typed history. Voice and camera integration are the next step.
+
+Completed typed questions and answers are stored in `~/Library/Application Support/Cadence/typed-sessions.sqlite`. Set `CADENCE_TYPED_SESSION_DB` to use a different database. To start a fresh typed session through the local API, send `POST /api/cadence/typed-session/new` with `Content-Type: application/json` and body `{}`. Earlier sessions remain on disk. Phone and Mac tabs connected to the same companion share the active problem.
 
 ## Completed in M2 (building on M1 commit `787b2ca`)
 

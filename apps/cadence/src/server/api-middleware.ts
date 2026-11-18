@@ -1,6 +1,7 @@
 // Local Node/Vite companion API & SSE sync server for Cadence (CAP-014 / ADR-005).
 // Coordinates iPhone Even App WebView <-> Mac Operator Station (Logitech webcam + Mac mic + KB + Gemini).
 
+import { randomUUID } from "node:crypto";
 import type { IncomingMessage, ServerResponse } from "node:http";
 
 import type { CopilotTurnResult } from "../domain/copilot.ts";
@@ -10,6 +11,11 @@ import {
   type CopilotAiProvider,
 } from "./ai-provider.ts";
 import type { KnowledgeBaseStore } from "./kb-store.ts";
+import {
+  createTypedSessionStore,
+  TypedSessionConflictError,
+  type TypedSessionStore,
+} from "./typed-session-store.ts";
 import {
   captureMacLogitechWebcam,
   type CapturedWebcamFrame,
@@ -30,6 +36,7 @@ export interface CadenceServerEvent {
 
 export interface CreateCadenceApiOptions {
   readonly kbStore: KnowledgeBaseStore;
+  readonly typedSessionStore?: TypedSessionStore;
   readonly provider?: CopilotAiProvider;
   readonly allowSyntheticWebcamFallback?: boolean;
 }
@@ -102,6 +109,18 @@ export function resolveDefaultProvider(): CopilotAiProvider {
 export function createCadenceApiHandler(options: CreateCadenceApiOptions) {
   const provider = options.provider ?? resolveDefaultProvider();
   const allowSyntheticWebcam = options.allowSyntheticWebcamFallback ?? true;
+  const typedSessions =
+    options.typedSessionStore ?? createTypedSessionStore(":memory:");
+  // A follow-up must see the preceding answer even if both clients submit at once.
+  let typedQueue = Promise.resolve();
+  function inTypedOrder<T>(work: () => T | Promise<T>): Promise<T> {
+    const pending = typedQueue.then(work);
+    typedQueue = pending.then(
+      () => {},
+      () => {},
+    );
+    return pending;
+  }
 
   const sseClients = new Set<{
     res: ServerResponse;
@@ -413,7 +432,27 @@ export function createCadenceApiHandler(options: CreateCadenceApiOptions) {
         return;
       }
 
-      // Typed text question -> KB/LLM Answer (useful for prep testing & UI)
+      if (
+        req.method === "POST" &&
+        pathname === "/api/cadence/typed-session/new"
+      ) {
+        if (
+          req.headers["content-type"]?.split(";")[0]?.trim() !==
+          "application/json"
+        ) {
+          sendJson(res, 415, { ok: false, error: "Use application/json." });
+          return;
+        }
+        const { sessionId, problemId } = await inTypedOrder(() => {
+          const session = typedSessions.startNew();
+          if (latestTurn?.trigger === "text") latestTurn = null;
+          return session;
+        });
+        sendJson(res, 200, { ok: true, sessionId, problemId });
+        return;
+      }
+
+      // Typed questions share the active problem on the Mac companion.
       if (req.method === "POST" && pathname === "/api/cadence/text-ask") {
         const startedAt = Date.now();
         const body = await readJsonBody(req);
@@ -424,25 +463,49 @@ export function createCadenceApiHandler(options: CreateCadenceApiOptions) {
           return;
         }
 
-        const documents = options.kbStore.listDocuments();
-        const aiResult = await provider.answerTextQuestion({
-          question,
-          documents,
+        const requestId = body.requestId;
+        if (
+          requestId !== undefined &&
+          (typeof requestId !== "string" ||
+            !/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(requestId))
+        ) {
+          sendJson(res, 400, { ok: false, error: "requestId must be a UUID." });
+          return;
+        }
+        const turn = await inTypedOrder(async () => {
+          const session = typedSessions.readActive();
+          if (requestId) {
+            const previous = typedSessions.findTurn(requestId);
+            if (previous) {
+              if (
+                previous.problemId !== session.problemId ||
+                previous.transcript !== question
+              ) {
+                throw new TypedSessionConflictError();
+              }
+              return previous;
+            }
+          }
+          const answer = await provider.answerTextQuestion({
+            question,
+            documents: options.kbStore.listDocuments(),
+            history: session.turns,
+          });
+          const completed: CopilotTurnResult = {
+            ...answer,
+            transcript: question,
+            turnId: requestId ?? randomUUID(),
+            sessionId: session.sessionId,
+            problemId: session.problemId,
+            trigger: "text",
+            latencyMs: Math.max(1, Date.now() - startedAt),
+            webcamThumbnailDataUrl: null,
+          };
+          typedSessions.append(session, completed);
+          latestTurn = completed;
+          broadcast({ type: "turn_result", payload: { turn: completed } });
+          return completed;
         });
-
-        const turn: CopilotTurnResult = {
-          turnId: `turn-${turnCounter++}-${Date.now()}`,
-          trigger: "text",
-          transcript: aiResult.transcript,
-          answerBullets: aiResult.answerBullets,
-          grounding: aiResult.grounding,
-          matchedKbHeadings: aiResult.matchedKbHeadings,
-          providerName: aiResult.providerName,
-          latencyMs: Math.max(1, Date.now() - startedAt),
-          webcamThumbnailDataUrl: null,
-        };
-        latestTurn = turn;
-        broadcast({ type: "turn_result", payload: { turn } });
         sendJson(res, 200, { ok: true, turn });
         return;
       }
@@ -450,6 +513,10 @@ export function createCadenceApiHandler(options: CreateCadenceApiOptions) {
       sendJson(res, 404, { ok: false, error: `Unknown endpoint ${pathname}` });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err);
+      if (err instanceof TypedSessionConflictError) {
+        sendJson(res, 409, { ok: false, error: message });
+        return;
+      }
       broadcast({ type: "error", payload: { message } });
       sendJson(res, 500, { ok: false, error: message });
     }

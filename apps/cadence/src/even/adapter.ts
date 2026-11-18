@@ -380,7 +380,7 @@ export function createHttpCadenceBackendClient(
     async submitTextTurn(question) {
       const data = await postJson<{ turn: CopilotTurnResult }>(
         "/api/cadence/text-ask",
-        { question },
+        { question, requestId: globalThis.crypto?.randomUUID?.() },
       );
       return data.turn;
     },

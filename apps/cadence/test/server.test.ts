@@ -1,14 +1,20 @@
 import assert from "node:assert/strict";
+import { randomUUID } from "node:crypto";
+import { once } from "node:events";
+import { mkdtempSync, rmSync } from "node:fs";
 import { createServer } from "node:http";
 import type { AddressInfo } from "node:net";
+import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
+import type { CopilotTurnResult } from "../src/domain/copilot.ts";
 import { encodeBytesToBase64, encodePcm16LeToWav } from "../src/domain/wav.ts";
 import { GeminiInteractionsProvider } from "../src/server/ai-provider.ts";
 import { createCadenceApiHandler } from "../src/server/api-middleware.ts";
 import { createKnowledgeBaseStore } from "../src/server/kb-store.ts";
+import { createTypedSessionStore } from "../src/server/typed-session-store.ts";
 
 const testDir = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(testDir, "..", "..", "..");
@@ -73,6 +79,15 @@ test("GeminiInteractionsProvider posts v1 Interactions payloads with thinking_le
   assert.equal(capturedRequests.length, 2);
   assert.equal(capturedRequests[0]?.body.model, "gemini-3.5-transcribe");
   assert.equal(capturedRequests[0]?.headers["Api-Revision"], "2026-05-20");
+  assert.equal(
+    (
+      capturedRequests[0]?.body.input as Array<{
+        type: string;
+        content: unknown[];
+      }>
+    )?.[0]?.type,
+    "user_input",
+  );
   assert.equal(capturedRequests[1]?.body.model, "gemini-4-hydrogen");
   assert.deepEqual(capturedRequests[1]?.body.generation_config, {
     thinking_level: "low",
@@ -171,3 +186,192 @@ test("Cadence API middleware serves KB, audio-ask ([KB] + [GEN]), and vision-ask
     await new Promise<void>((resolve) => server.close(() => resolve()));
   }
 });
+
+async function startTypedCompanion(
+  dbPath: string,
+  respond: (input: string) => string | Promise<string>,
+) {
+  const store = createTypedSessionStore(dbPath);
+  const provider = new GeminiInteractionsProvider({
+    apiKey: "test-key",
+    fetchFn: async (_url, init) => {
+      const { input } = JSON.parse(String(init?.body)) as { input: string };
+      return Response.json({ output_text: await respond(input) });
+    },
+  });
+  const kbStore = createKnowledgeBaseStore({
+    kbDir: join(testDir, "__nonexistent_kb__"),
+    sampleFixturePath,
+  });
+  const handler = createCadenceApiHandler({
+    kbStore,
+    provider,
+    typedSessionStore: store,
+  });
+  const server = createServer((req, res) => {
+    void handler(req, res);
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  const { port } = server.address() as AddressInfo;
+  const post = (route: string, body: Record<string, unknown>) =>
+    fetch(`http://127.0.0.1:${port}/api/cadence/${route}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(5000),
+    });
+
+  return {
+    server,
+    post,
+    async ask(question: string, requestId?: string) {
+      const response = await post("text-ask", { question, requestId });
+      const body = (await response.json()) as {
+        turn: CopilotTurnResult;
+        error?: string;
+      };
+      assert.equal(response.status, 200, body.error);
+      return body.turn;
+    },
+    async [Symbol.asyncDispose]() {
+      await server[Symbol.asyncDispose]();
+      store.close();
+    },
+  };
+}
+
+test("typed follow-ups retain the problem, candidate correction and attributed suggestion across a companion restart", async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), "cadence-typed-test-"));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  const dbPath = join(dir, "sessions.sqlite");
+  const problem =
+    "Find duplicates in an integer array. Keep the input array unchanged.";
+  const correction = "I sorted a copy instead.";
+  const suggestion = "Use a hash map to count occurrences.";
+  const followup = "What is the runtime of my version?";
+  const requestId = randomUUID();
+  let original: CopilotTurnResult;
+  {
+    await using first = await startTypedCompanion(dbPath, (input) =>
+      input === problem ? suggestion : "Scan adjacent entries.",
+    );
+    original = await first.ask(problem, requestId);
+    const updated = await first.ask(correction);
+    assert.ok(original.sessionId && original.problemId && original.turnId);
+    assert.equal(updated.sessionId, original.sessionId);
+    assert.equal(updated.problemId, original.problemId);
+    assert.notEqual(updated.turnId, original.turnId);
+  }
+
+  const inputs: string[] = [];
+  await using resumed = await startTypedCompanion(dbPath, (input) => {
+    inputs.push(input);
+    return "Sorting the copy takes O(n log n).";
+  });
+  assert.deepEqual(await resumed.ask(problem, requestId), original);
+  assert.equal(
+    inputs.length,
+    0,
+    "a redelivered request must reuse the stored result",
+  );
+
+  const turn = await resumed.ask(followup);
+  assert.equal(turn.transcript, followup);
+  assert.equal(turn.sessionId, original.sessionId);
+  assert.equal(turn.problemId, original.problemId);
+  const context = JSON.parse(inputs[0]!) as {
+    originalProblem: string;
+    recentExchanges: Array<{ user: string; cadenceSuggestion: string }>;
+    currentQuestion: string;
+  };
+  assert.equal(context.originalProblem, problem);
+  assert.ok(context.recentExchanges.some((item) => item.user === correction));
+  assert.ok(
+    context.recentExchanges.some((item) =>
+      item.cadenceSuggestion.includes(suggestion),
+    ),
+  );
+  assert.equal(context.currentQuestion, followup);
+
+  // Move the correction out of the recent-turn window, as in a longer practice session.
+  for (let i = 1; i <= 8; i++) {
+    await resumed.ask(`Walk through example ${i}.`);
+  }
+  await resumed.ask("Does my implementation preserve the input?");
+  const later = JSON.parse(inputs.at(-1)!) as {
+    originalProblem: string;
+    earlierUserExcerpts: Array<{ user: string }>;
+  };
+  assert.equal(later.originalProblem, problem);
+  assert.ok(later.earlierUserExcerpts.some((item) => item.user === correction));
+
+  assert.equal((await resumed.post("typed-session/new", {})).ok, true);
+  const fresh = await resumed.ask("How do I traverse a graph?");
+  assert.notEqual(fresh.sessionId, original.sessionId);
+  assert.notEqual(fresh.problemId, original.problemId);
+  assert.equal(inputs.at(-1), "How do I traverse a graph?");
+});
+
+test(
+  "overlapping typed asks see committed turns in submission order, and a failed ask can be retried",
+  { timeout: 10000 },
+  async () => {
+    const entered = Promise.withResolvers<void>();
+    const release = Promise.withResolvers<void>();
+    const inputs: string[] = [];
+    let failNext = false;
+    await using companion = await startTypedCompanion(
+      ":memory:",
+      async (input) => {
+        inputs.push(input);
+        if (inputs.length === 1) {
+          entered.resolve();
+          await release.promise;
+        }
+        if (failNext) {
+          failNext = false;
+          throw new Error("provider briefly unavailable");
+        }
+        return "Use the midpoint invariant.";
+      },
+    );
+
+    const first = companion.ask("Implement a binary search.");
+    await entered.promise;
+    const secondBodyReceived = new Promise<void>((resolve) =>
+      companion.server.once("request", (req) => req.once("end", resolve)),
+    );
+    const second = companion.ask("What is its loop invariant?");
+    try {
+      await secondBodyReceived;
+    } finally {
+      release.resolve();
+    }
+    await Promise.all([first, second]);
+    assert.equal(inputs.length, 2);
+    assert.match(inputs[1]!, /Implement a binary search/);
+    assert.match(inputs[1]!, /Use the midpoint invariant/);
+
+    const requestId = randomUUID();
+    const question = "Can it handle duplicates?";
+    failNext = true;
+    assert.equal(
+      (await companion.post("text-ask", { question, requestId })).status,
+      500,
+    );
+    const retried = await companion.ask(question, requestId);
+    assert.equal(retried.transcript, question);
+    assert.equal(
+      inputs[2],
+      inputs[3],
+      "a failed turn must not enter the next prompt",
+    );
+    assert.deepEqual(await companion.ask(question, requestId), retried);
+    assert.equal(
+      inputs.length,
+      4,
+      "retrying the successful request must not call Gemini again",
+    );
+  },
+);
