@@ -1,10 +1,10 @@
 # Status
 
-Updated: 2026-11-15
+Updated: 2026-11-17
 
 ## Current milestone
 
-**M4 Hardware baseline — complete.** All `9 / 9` cases in the hardware matrix (`docs/testing/TESTING.md` `HW-001`–`HW-009`) have been executed by JT against the static `vite preview` production build of `apps/device-lab` (`976de10`, port `4173`) on **`iPhone 17 Pro Max` / `iOS 27.2`**, **`Even App v2.4.0`**, **`Even G2 2.4.0.24`**, and **`Even R1 2.3.2.0008`**. Sanitized WebView captures are archived locally under gitignored `artifacts/hw/2026-11-15/`, directly verified platform behaviors (`CAP-001`, `CAP-002`, `CAP-003`, `CAP-005`, `CAP-006`, `CAP-008`) are promoted to `verified-device` in `docs/platform/CAPABILITIES.md`, and `scripts/doctor.mjs` now reports `[ok] hardware` from `docs/testing/TESTING.md` rather than unconditionally hardcoding `deferred`. Next milestone: **M5 (Packaging and CI)**.
+**M4 Hardware baseline — complete; Cadence (`apps/cadence`) v0.1.0 implemented (`ADR-005`).** All `9 / 9` cases in the hardware matrix (`docs/testing/TESTING.md` `HW-001`–`HW-009`) have been executed by JT against `apps/device-lab` on **`iPhone 17 Pro Max` / `iOS 27.2`**, **`Even App v2.4.0`**, **`Even G2 2.4.0.24`**, and **`Even R1 2.3.2.0008`**. Building on those verified capabilities, **`apps/cadence`** (`@even-dev-lab/cadence`) is now wired with R1 press-and-hold voice capture (`16 kHz` G2/Phone/Mac mic -> RIFF WAV -> Speech-to-Text), Mac Logitech webcam capture (`?role=operator` WebRTC + macOS AVFoundation fallback), Knowledge Base retrieval (`[KB]` grounded vs `[GEN]` fallback), and a server-side Gemini Interactions API proxy (`gemini-4-hydrogen` + `gemini-3.5-transcribe`).
 
 ## Completed in M2 (building on M1 commit `787b2ca`)
 

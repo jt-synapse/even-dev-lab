@@ -21,6 +21,11 @@ coverage/
 *.pem
 *.key
 
+# Personal Cadence knowledge base documents (sample fixture is in fixtures/)
+apps/cadence/kb/*.md
+apps/cadence/kb/*.txt
+!apps/cadence/kb/README.md
+
 # Editor and OS noise
 .DS_Store
 .idea/

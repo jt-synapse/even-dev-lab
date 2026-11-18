@@ -19,9 +19,9 @@ Each record carries a source, date, applicable versions, evidence state, limitat
 | CAP-009 | Direct generic Bluetooth keyboard-to-G2 pairing is available                                     | unknown            | No documented support; do not depend on it                                          |
 | CAP-010 | A phone-paired keyboard can supply text to our plugin's WebView                                  | unknown            | Focus/text/shortcut/lock-state experiment on target phone (M6)                      |
 | CAP-011 | All desired workflows work with no internet                                                      | unknown            | Loaded WebView loop passed `HW-009`; packaged `.ehpk` offline cold-start next (M5)  |
-| CAP-012 | `bridge.audioControl(isOpen, AudioInputSource)` streams `16 kHz` PCM (`AudioEvent.audioPcm`)     | documented         | Exercise permission & stream lifecycle in dedicated post-M4 experiment              |
-| CAP-013 | `bridge.captureImageFromCamera()` / `pickImageFromAlbum()` return native `AppImageAsset \| null` | documented         | Verify native camera/album bridge prompts & payload size on phone post-M4           |
-| CAP-014 | Local Node/Vite dev API proxy holds `.env` provider keys server-side, off the client WebView     | proposed           | Keep M2–M5 zero-backend; introduce when first AI/media experiment starts            |
+| CAP-012 | `bridge.audioControl(isOpen, AudioInputSource)` streams `16 kHz` PCM (`AudioEvent.audioPcm`)     | documented         | Wired in `apps/cadence`; exercise live G2/phone mic capture on hardware             |
+| CAP-013 | `bridge.captureImageFromCamera()` / `pickImageFromAlbum()` return native `AppImageAsset \| null` | documented         | Wired as phone-camera fallback in `apps/cadence`; verify payload on target phone    |
+| CAP-014 | Local Node/Vite dev API proxy holds `.env` provider keys server-side, off the client WebView     | proposed           | Implemented in `apps/cadence/src/server/api-middleware.ts` (`ADR-005`)              |
 
 Do not encode a Bluetooth version into application logic: earlier sources disagreed (blueprint §4).
 

@@ -131,6 +131,19 @@ __metadata:
   languageName: node
   linkType: hard
 
+"@even-dev-lab/cadence@workspace:apps/cadence":
+  version: 0.0.0-use.local
+  resolution: "@even-dev-lab/cadence@workspace:apps/cadence"
+  dependencies:
+    "@evenrealities/even_hub_sdk": "npm:0.0.16"
+    "@evenrealities/evenhub-cli": "npm:0.2.0"
+    "@evenrealities/evenhub-simulator": "npm:0.9.5"
+    "@types/node": "npm:24.19.2"
+    typescript: "npm:6.0.3"
+    vite: "npm:8.3.8"
+  languageName: unknown
+  linkType: soft
+
 "@even-dev-lab/device-lab@workspace:apps/device-lab":
   version: 0.0.0-use.local
   resolution: "@even-dev-lab/device-lab@workspace:apps/device-lab"
